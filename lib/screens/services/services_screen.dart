@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import '../../models/service.dart';
 import '../../services/api_service.dart';
@@ -23,7 +24,9 @@ class _ServicesScreenState extends State<ServicesScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Servizi')),
+    appBar: AppBar(
+      title: const Text('Servizi'),
+    ),
     body: FutureBuilder<List<Service>>(
       future: future,
       builder: (context, snapshot) {
@@ -35,24 +38,42 @@ class _ServicesScreenState extends State<ServicesScreen> {
         }
 
         final services = snapshot.data ?? [];
+
         return RefreshIndicator(
           onRefresh: () async {
             setState(() => future = _api.getServices());
             await future;
           },
-          child: ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: services.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 10),
-            itemBuilder: (_, i) => ServiceCard(
-              service: services[i],
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => BookingScreen(service: services[i]),
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+            children: [
+              Text(
+                'Prenota il tuo momento',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
                 ),
               ),
-            ),
+              const SizedBox(height: 6),
+              Text(
+                'Scegli il trattamento che desideri e trova l’orario più comodo per te.',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 22),
+              ...services.map(
+                (service) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: ServiceCard(
+                    service: service,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => BookingScreen(service: service),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         );
       },

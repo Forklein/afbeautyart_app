@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import '../models/appointment.dart';
 
@@ -9,29 +10,34 @@ class AppointmentCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final status = _statusStyle(appointment);
+    final scheme = Theme.of(context).colorScheme;
 
     return Card(
-      clipBehavior: Clip.antiAlias,
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border(
-            left: BorderSide(
-              color: status.color,
-              width: 5,
-            ),
-          ),
-        ),
-        padding: const EdgeInsets.all(16),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: scheme.primary.withOpacity(.11),
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  child: Icon(Icons.spa_outlined, color: scheme.primary),
+                ),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     appointment.service.name,
-                    style: Theme.of(context).textTheme.titleMedium,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -42,17 +48,37 @@ class AppointmentCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            _InfoRow(
-              icon: Icons.calendar_today_outlined,
-              text: '${appointment.date} • ${appointment.time}',
+            const SizedBox(height: 18),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHighest.withOpacity(.55),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.calendar_month_outlined, size: 19, color: scheme.primary),
+                  const SizedBox(width: 9),
+                  Text(
+                    '${appointment.date}  •  ${appointment.time}',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 6),
-            _InfoRow(
-              icon: Icons.person_outline,
-              text: appointment.providerName.isEmpty
-                  ? 'Operatrice non disponibile'
-                  : 'Operatrice: ${appointment.providerName}',
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Icon(Icons.person_outline, size: 18, color: scheme.onSurfaceVariant),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    appointment.providerName.isEmpty
+                        ? 'Operatrice non disponibile'
+                        : appointment.providerName,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -117,44 +143,26 @@ class _StatusChip extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.10),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: color),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontWeight: FontWeight.w600,
-              fontSize: 12,
-            ),
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+    decoration: BoxDecoration(
+      color: color.withOpacity(.10),
+      borderRadius: BorderRadius.circular(30),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 15, color: color),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: TextStyle(
+            color: color,
+            fontWeight: FontWeight.w700,
+            fontSize: 11,
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _InfoRow extends StatelessWidget {
-  final IconData icon;
-  final String text;
-
-  const _InfoRow({required this.icon, required this.text});
-
-  @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      Icon(icon, size: 18, color: Theme.of(context).colorScheme.onSurfaceVariant),
-      const SizedBox(width: 8),
-      Expanded(child: Text(text)),
-    ],
+        ),
+      ],
+    ),
   );
 }

@@ -1,22 +1,20 @@
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../screens/appointments/appointments_screen.dart';
+import 'device_token_service.dart';
 
-/// Gestisce Firebase Cloud Messaging lato app.
-///
-/// Nota: il backend deve registrare il token FCM associato al customer e
-/// inviare la notifica quando lo stato della prenotazione cambia.
 class PushNotificationService {
   PushNotificationService._();
 
   static final FirebaseMessaging _messaging = FirebaseMessaging.instance;
   static bool _initialized = false;
 
-  static Future<void> initialize(GlobalKey<NavigatorState> navigatorKey) async {
-    // Firebase Messaging non viene inizializzato durante i test Windows.
-    // L'app continua quindi a funzionare normalmente su Windows.
+  static Future<void> initialize(
+    GlobalKey<NavigatorState> navigatorKey,
+  ) async {
     if (defaultTargetPlatform == TargetPlatform.windows) return;
 
     try {
@@ -29,24 +27,15 @@ class PushNotificationService {
         provisional: false,
       );
 
-      if (settings.authorizationStatus == AuthorizationStatus.denied) {
-        return;
-      }
+      if (settings.authorizationStatus == AuthorizationStatus.denied) return;
 
       _initialized = true;
 
-      // Il token va registrato sul backend associandolo al customer autenticato.
-      // Per ora lo stampiamo in debug: il prossimo passaggio è collegarlo
-      // all'endpoint WordPress dedicato ai device token.
-      final token = await _messaging.getToken();
-      if (kDebugMode) {
-        debugPrint('AFBA FCM TOKEN: $token');
-      }
+      // Se l'utente è già autenticato, aggiorniamo subito il device token.
+      await DeviceTokenService.registerCurrentDevice();
 
-      FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
-        if (kDebugMode) {
-          debugPrint('AFBA FCM TOKEN REFRESH: $newToken');
-        }
+      FirebaseMessaging.instance.onTokenRefresh.listen((_) async {
+        await DeviceTokenService.registerCurrentDevice();
       });
 
       FirebaseMessaging.onMessage.listen((message) {
@@ -64,10 +53,7 @@ class PushNotificationService {
         });
       }
     } catch (e) {
-      // Le notifiche non devono impedire l'avvio dell'app.
-      if (kDebugMode) {
-        debugPrint('FCM non inizializzato: $e');
-      }
+      if (kDebugMode) debugPrint('FCM non inizializzato: $e');
     }
   }
 
@@ -77,9 +63,6 @@ class PushNotificationService {
     final navigator = navigatorKey.currentState;
     if (navigator == null) return;
 
-    // Importante: qui non facciamo push automatici di route se l'utente non è
-    // autenticato. In caso contrario la schermata di prenotazioni è il punto
-    // naturale da aprire dopo il tap sulla notifica.
     navigator.push(
       MaterialPageRoute(builder: (_) => const AppointmentsScreen()),
     );
@@ -99,12 +82,13 @@ class PushNotificationService {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 5),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-            const SizedBox(height: 2),
+            Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 3),
             Text(body),
           ],
         ),

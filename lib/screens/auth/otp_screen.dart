@@ -1,5 +1,8 @@
+
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
+import '../../services/device_token_service.dart';
+import '../../widgets/app_logo.dart';
 import '../../widgets/primary_button.dart';
 import '../home/home_screen.dart';
 
@@ -37,10 +40,16 @@ class _OtpScreenState extends State<OtpScreen> {
         throw Exception('Il server non ha restituito il token.');
       }
 
+      // Da questo momento il JWT identifica il customer: possiamo associare
+      // in modo sicuro il token FCM al customer sul backend.
+      await DeviceTokenService.registerCurrentDevice();
+
       if (!mounted) return;
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
+        MaterialPageRoute(
+          builder: (_) => const HomeScreen(),
+        ),
         (_) => false,
       );
     } catch (e) {
@@ -55,27 +64,54 @@ class _OtpScreenState extends State<OtpScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Verifica codice')),
-    body: Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text('Codice inviato a ${widget.email}'),
-          const SizedBox(height: 20),
-          TextField(
-            controller: _code,
-            keyboardType: TextInputType.number,
-            textAlign: TextAlign.center,
-            decoration: const InputDecoration(labelText: 'Codice OTP'),
+    appBar: AppBar(title: const Text('Verifica')),
+    body: SafeArea(
+      child: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: Column(
+              children: [
+                const AppLogo(width: 100),
+                const SizedBox(height: 26),
+                Text(
+                  'Inserisci il codice',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Abbiamo inviato un codice a ${widget.email}.',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 28),
+                TextField(
+                  controller: _code,
+                  keyboardType: TextInputType.number,
+                  textAlign: TextAlign.center,
+                  maxLength: 6,
+                  style: const TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 8,
+                  ),
+                  decoration: const InputDecoration(
+                    hintText: '000000',
+                    counterText: '',
+                  ),
+                ),
+                const SizedBox(height: 18),
+                PrimaryButton(
+                  label: 'Accedi',
+                  loading: _loading,
+                  onPressed: _verify,
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 16),
-          PrimaryButton(
-            label: 'Verifica',
-            loading: _loading,
-            onPressed: _verify,
-          ),
-        ],
+        ),
       ),
     ),
   );

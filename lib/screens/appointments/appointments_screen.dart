@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import '../../models/appointment.dart';
 import '../../services/appointment_service.dart';
@@ -22,7 +23,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Le mie prenotazioni')),
+    appBar: AppBar(title: const Text('Prenotazioni')),
     body: FutureBuilder<List<Appointment>>(
       future: future,
       builder: (context, snapshot) {
@@ -35,7 +36,31 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
 
         final list = snapshot.data ?? [];
         if (list.isEmpty) {
-          return const Center(child: Text('Nessuna prenotazione.'));
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.calendar_month_outlined,
+                    size: 58,
+                    color: Theme.of(context).colorScheme.primary.withOpacity(.65),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Nessuna prenotazione',
+                    style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Le tue prossime prenotazioni appariranno qui.',
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          );
         }
 
         return RefreshIndicator(
@@ -44,9 +69,9 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
             await future;
           },
           child: ListView.separated(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
             itemCount: list.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 10),
+            separatorBuilder: (_, __) => const SizedBox(height: 12),
             itemBuilder: (_, i) => AppointmentCard(appointment: list[i]),
           ),
         );
