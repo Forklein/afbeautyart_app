@@ -3,22 +3,34 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+
+import '../firebase_options.dart';
 import '../screens/appointments/appointments_screen.dart';
 import 'device_token_service.dart';
 
 class PushNotificationService {
   PushNotificationService._();
 
-  static final FirebaseMessaging _messaging = FirebaseMessaging.instance;
+  // Recuperiamo l'istanza solo dopo aver inizializzato Firebase.
+  static FirebaseMessaging get _messaging => FirebaseMessaging.instance;
+
   static bool _initialized = false;
 
   static Future<void> initialize(
     GlobalKey<NavigatorState> navigatorKey,
   ) async {
-    if (defaultTargetPlatform == TargetPlatform.windows) return;
+    if (kIsWeb ||
+        (defaultTargetPlatform != TargetPlatform.iOS &&
+            defaultTargetPlatform != TargetPlatform.android)) {
+      return;
+    }
+
+    if (_initialized) return;
 
     try {
-      await Firebase.initializeApp();
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
 
       final settings = await _messaging.requestPermission(
         alert: true,
@@ -27,15 +39,16 @@ class PushNotificationService {
         provisional: false,
       );
 
-      if (settings.authorizationStatus == AuthorizationStatus.denied) return;
+      if (settings.authorizationStatus == AuthorizationStatus.denied) {
+        return;
+      }
 
       _initialized = true;
 
-      // Se l'utente è già autenticato, aggiorniamo subito il device token.
       await DeviceTokenService.registerCurrentDevice();
 
-      FirebaseMessaging.instance.onTokenRefresh.listen((_) async {
-        await DeviceTokenService.registerCurrentDevice();
+      _messaging.onTokenRefresh.listen((token) async {
+        await DeviceTokenService.registerCurrentDevice(token: token);
       });
 
       FirebaseMessaging.onMessage.listen((message) {
@@ -47,24 +60,31 @@ class PushNotificationService {
       });
 
       final initialMessage = await _messaging.getInitialMessage();
+
       if (initialMessage != null) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           _openAppointments(navigatorKey);
         });
       }
     } catch (e) {
-      if (kDebugMode) debugPrint('FCM non inizializzato: $e');
+      if (kDebugMode) {
+        debugPrint('FCM non inizializzato: $e');
+      }
     }
   }
 
   static bool get isInitialized => _initialized;
 
-  static void _openAppointments(GlobalKey<NavigatorState> navigatorKey) {
+  static void _openAppointments(
+    GlobalKey<NavigatorState> navigatorKey,
+  ) {
     final navigator = navigatorKey.currentState;
     if (navigator == null) return;
 
     navigator.push(
-      MaterialPageRoute(builder: (_) => const AppointmentsScreen()),
+      MaterialPageRoute(
+        builder: (_) => const AppointmentsScreen(),
+      ),
     );
   }
 
@@ -87,7 +107,10 @@ class PushNotificationService {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+            Text(
+              title,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
             const SizedBox(height: 3),
             Text(body),
           ],

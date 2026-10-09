@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1066168117146",
+    "project_id": "af-beauty-art",
+    "storage_bucket": "af-beauty-art.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1066168117146:android:4eb48cf736f43ac581bc23",
+        "android_client_info": {
+          "package_name": "com.example.afbeautyart_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBTTNEW5mySBFrf7W1xDF3qB6chIV4grOg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

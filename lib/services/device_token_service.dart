@@ -1,57 +1,121 @@
 
-import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import '../config/api_config.dart';
-import 'storage_service.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 
-class DeviceTokenService {
-  DeviceTokenService._();
+import '../firebase_options.dart';
+import '../screens/appointments/appointments_screen.dart';
+import 'device_token_service.dart';
 
-  static Future<void> registerCurrentDevice() async {
-    final authToken = await StorageService.getToken();
-    if (authToken == null || authToken.isEmpty) return;
+class PushNotificationService {
+  PushNotificationService._();
+
+  // Recuperiamo l'istanza solo dopo aver inizializzato Firebase.
+  static FirebaseMessaging get _messaging => FirebaseMessaging.instance;
+
+  static bool _initialized = false;
+
+  static Future<void> initialize(
+    GlobalKey<NavigatorState> navigatorKey,
+  ) async {
+    if (kIsWeb ||
+        (defaultTargetPlatform != TargetPlatform.iOS &&
+            defaultTargetPlatform != TargetPlatform.android)) {
+      return;
+    }
+
+    if (_initialized) return;
 
     try {
-      final fcmToken = await FirebaseMessaging.instance.getToken();
-      if (fcmToken == null || fcmToken.isEmpty) return;
-
-      final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/notifications/device-token'),
-        headers: {
-          'Authorization': 'Bearer $authToken',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-          'token': fcmToken,
-          'platform': 'ios',
-        }),
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
       );
 
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw Exception('Registrazione dispositivo fallita: ${response.statusCode}');
+      final settings = await _messaging.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+        provisional: false,
+      );
+
+      if (settings.authorizationStatus == AuthorizationStatus.denied) {
+        return;
       }
-    } catch (_) {
-      // La registrazione del token non deve impedire l'accesso all'app.
+
+      _initialized = true;
+
+      await DeviceTokenService.registerCurrentDevice();
+
+      _messaging.onTokenRefresh.listen((token) async {
+        await DeviceTokenService.registerCurrentDevice(token: token);
+      });
+
+      FirebaseMessaging.onMessage.listen((message) {
+        _showForegroundMessage(navigatorKey, message);
+      });
+
+      FirebaseMessaging.onMessageOpenedApp.listen((message) {
+        _openAppointments(navigatorKey);
+      });
+
+      final initialMessage = await _messaging.getInitialMessage();
+
+      if (initialMessage != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _openAppointments(navigatorKey);
+        });
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('FCM non inizializzato: $e');
+      }
     }
   }
 
-  static Future<void> unregisterCurrentDevice() async {
-    final authToken = await StorageService.getToken();
-    if (authToken == null || authToken.isEmpty) return;
+  static bool get isInitialized => _initialized;
 
-    try {
-      final fcmToken = await FirebaseMessaging.instance.getToken();
-      if (fcmToken == null || fcmToken.isEmpty) return;
+  static void _openAppointments(
+    GlobalKey<NavigatorState> navigatorKey,
+  ) {
+    final navigator = navigatorKey.currentState;
+    if (navigator == null) return;
 
-      await http.delete(
-        Uri.parse('${ApiConfig.baseUrl}/notifications/device-token'),
-        headers: {
-          'Authorization': 'Bearer $authToken',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({'token': fcmToken}),
-      );
-    } catch (_) {}
+    navigator.push(
+      MaterialPageRoute(
+        builder: (_) => const AppointmentsScreen(),
+      ),
+    );
+  }
+
+  static void _showForegroundMessage(
+    GlobalKey<NavigatorState> navigatorKey,
+    RemoteMessage message,
+  ) {
+    final context = navigatorKey.currentContext;
+    if (context == null) return;
+
+    final notification = message.notification;
+    final title = notification?.title ?? 'AF Beauty Art';
+    final body = notification?.body ?? 'Hai ricevuto una nuova notifica.';
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 5),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 3),
+            Text(body),
+          ],
+        ),
+      ),
+    );
   }
 }

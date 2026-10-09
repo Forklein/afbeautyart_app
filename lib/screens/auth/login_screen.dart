@@ -76,13 +76,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     child: const AppLogo(width: 100),
                   ),
-                  const SizedBox(height: 30),
-                  Text(
-                    'Benvenuta',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
                   const SizedBox(height: 8),
                   Text(
                     'Accedi ad AF Beauty Art per gestire i tuoi appuntamenti.',
