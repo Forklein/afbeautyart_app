@@ -1,121 +1,100 @@
 
-import 'package:firebase_core/firebase_core.dart';
+import 'dart:convert';
+
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 
-import '../firebase_options.dart';
-import '../screens/appointments/appointments_screen.dart';
-import 'device_token_service.dart';
+import '../config/api_config.dart';
+import 'storage_service.dart';
 
-class PushNotificationService {
-  PushNotificationService._();
+class DeviceTokenService {
+  DeviceTokenService._();
 
-  // Recuperiamo l'istanza solo dopo aver inizializzato Firebase.
-  static FirebaseMessaging get _messaging => FirebaseMessaging.instance;
-
-  static bool _initialized = false;
-
-  static Future<void> initialize(
-    GlobalKey<NavigatorState> navigatorKey,
-  ) async {
-    if (kIsWeb ||
-        (defaultTargetPlatform != TargetPlatform.iOS &&
-            defaultTargetPlatform != TargetPlatform.android)) {
-      return;
+  static String? get _platformName {
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.iOS:
+        return 'ios';
+      case TargetPlatform.android:
+        return 'android';
+      default:
+        return null;
     }
+  }
 
-    if (_initialized) return;
+  static Future<void> registerCurrentDevice({String? token}) async {
+    final authToken = await StorageService.getToken();
+    if (authToken == null || authToken.isEmpty) return;
+
+    final platform = _platformName;
+    if (platform == null) return;
 
     try {
-      await Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform,
+      final fcmToken =
+          token ?? await FirebaseMessaging.instance.getToken();
+
+      if (fcmToken == null || fcmToken.isEmpty) return;
+
+      final response = await http.post(
+        Uri.parse(
+          '${ApiConfig.baseUrl}/notifications/device-token',
+        ),
+        headers: {
+          'Authorization': 'Bearer $authToken',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'token': fcmToken,
+          'platform': platform,
+        }),
       );
 
-      final settings = await _messaging.requestPermission(
-        alert: true,
-        badge: true,
-        sound: true,
-        provisional: false,
-      );
-
-      if (settings.authorizationStatus == AuthorizationStatus.denied) {
-        return;
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception(
+          'Registrazione dispositivo fallita: '
+          '${response.statusCode} ${response.body}',
+        );
       }
 
-      _initialized = true;
-
-      await DeviceTokenService.registerCurrentDevice();
-
-      _messaging.onTokenRefresh.listen((token) async {
-        await DeviceTokenService.registerCurrentDevice(token: token);
-      });
-
-      FirebaseMessaging.onMessage.listen((message) {
-        _showForegroundMessage(navigatorKey, message);
-      });
-
-      FirebaseMessaging.onMessageOpenedApp.listen((message) {
-        _openAppointments(navigatorKey);
-      });
-
-      final initialMessage = await _messaging.getInitialMessage();
-
-      if (initialMessage != null) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _openAppointments(navigatorKey);
-        });
+      if (kDebugMode) {
+        debugPrint('AFBA: dispositivo registrato correttamente.');
       }
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('FCM non inizializzato: $e');
+        debugPrint('AFBA: errore registrazione dispositivo: $e');
       }
     }
   }
 
-  static bool get isInitialized => _initialized;
+  static Future<void> unregisterCurrentDevice() async {
+    final authToken = await StorageService.getToken();
+    if (authToken == null || authToken.isEmpty) return;
 
-  static void _openAppointments(
-    GlobalKey<NavigatorState> navigatorKey,
-  ) {
-    final navigator = navigatorKey.currentState;
-    if (navigator == null) return;
+    try {
+      final fcmToken = await FirebaseMessaging.instance.getToken();
+      if (fcmToken == null || fcmToken.isEmpty) return;
 
-    navigator.push(
-      MaterialPageRoute(
-        builder: (_) => const AppointmentsScreen(),
-      ),
-    );
-  }
-
-  static void _showForegroundMessage(
-    GlobalKey<NavigatorState> navigatorKey,
-    RemoteMessage message,
-  ) {
-    final context = navigatorKey.currentContext;
-    if (context == null) return;
-
-    final notification = message.notification;
-    final title = notification?.title ?? 'AF Beauty Art';
-    final body = notification?.body ?? 'Hai ricevuto una nuova notifica.';
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 5),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: const TextStyle(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 3),
-            Text(body),
-          ],
+      final response = await http.delete(
+        Uri.parse(
+          '${ApiConfig.baseUrl}/notifications/device-token',
         ),
-      ),
-    );
+        headers: {
+          'Authorization': 'Bearer $authToken',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'token': fcmToken}),
+      );
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception(
+          'Disattivazione dispositivo fallita: '
+          '${response.statusCode} ${response.body}',
+        );
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('AFBA: errore disattivazione dispositivo: $e');
+      }
+    }
   }
 }
